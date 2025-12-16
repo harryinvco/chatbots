@@ -12,9 +12,7 @@ Add this DNS record in your domain provider:
 |-------|------|----------------------|
 | CNAME | ai   | cname.vercel-dns.com |
 
-Then in Vercel dashboard → Project Settings → Domains → Add `ai.icpac.org.cy`
-
-Wait 5-10 minutes for DNS to propagate.
+Let us know once you've added it so we can complete the setup on our end.
 
 ---
 
@@ -35,5 +33,3 @@ A blue chat icon appears in the bottom-right corner.
 ```
 https://icpac.vercel.app
 ```
-
-(Or `https://ai.icpac.org.cy` once the custom domain is set up)
