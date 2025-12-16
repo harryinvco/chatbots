@@ -1,5 +1,5 @@
 (function() {
-  var API_URL = 'https://icpac.vercel.app/api/chat';
+  var API_URL = 'https://ai.icpac.org.cy/api/chat';
   var conversationId = null;
   var isLoading = false;
 

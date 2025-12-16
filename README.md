@@ -1,6 +1,6 @@
 # ICPAC AI Chatbot
 
-Live at: **https://icpac.vercel.app**
+Live at: **https://ai.icpac.org.cy**
 
 ---
 
@@ -21,7 +21,7 @@ Let us know once you've added it so we can complete the setup on our end.
 Paste this code before `</body>` on any page:
 
 ```html
-<script src="https://icpac.vercel.app/widget/icpac-chat-widget.js"></script>
+<script src="https://ai.icpac.org.cy/widget/icpac-chat-widget.js"></script>
 ```
 
 A blue chat icon appears in the bottom-right corner.
@@ -31,5 +31,5 @@ A blue chat icon appears in the bottom-right corner.
 ## Link for Emails
 
 ```
-https://icpac.vercel.app
+https://ai.icpac.org.cy
 ```
