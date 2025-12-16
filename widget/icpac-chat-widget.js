@@ -1,6 +1,5 @@
 (function() {
-  var API_URL = 'http://165.227.128.12/v1';
-  var API_KEY = 'app-JD3LSwu8htitgBCJI6ihFEEY';
+  var API_URL = 'https://icpac.vercel.app/api/chat';
   var conversationId = null;
   var isLoading = false;
 
@@ -52,9 +51,9 @@
       messages.appendChild(typing);
       messages.scrollTop = messages.scrollHeight;
 
-      fetch(API_URL + '/chat-messages', {
+      fetch(API_URL, {
         method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + API_KEY, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inputs: { user_name: 'Visitor' }, query: text, response_mode: 'blocking', conversation_id: conversationId || '', user: localStorage.getItem('icpac_uid') || (localStorage.setItem('icpac_uid', 'u' + Math.random().toString(36).substr(2, 9)), localStorage.getItem('icpac_uid')) })
       })
       .then(function(r) { return r.json(); })
