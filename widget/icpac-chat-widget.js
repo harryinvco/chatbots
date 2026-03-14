@@ -3,7 +3,7 @@
   var conversationId = null;
   var isLoading = false;
 
-  var css = '#icpac-widget{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;font-size:14px}#icpac-bubble{position:fixed;bottom:20px;right:20px;width:60px;height:60px;border-radius:50%;background:#1a56db;color:#fff;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:999999;display:flex;align-items:center;justify-content:center}#icpac-bubble:hover{transform:scale(1.05)}#icpac-bubble svg{width:28px;height:28px}#icpac-window{position:fixed;bottom:90px;right:20px;width:380px;height:520px;max-height:calc(100vh - 120px);background:#fff;border-radius:12px;box-shadow:0 5px 40px rgba(0,0,0,.16);z-index:999998;display:none;flex-direction:column;overflow:hidden}#icpac-window.open{display:flex}#icpac-header{background:#1a56db;color:#fff;padding:16px 20px;display:flex;align-items:center;justify-content:space-between}#icpac-header h3{margin:0;font-size:16px;font-weight:600}#icpac-close{background:none;border:none;color:#fff;cursor:pointer;padding:4px}#icpac-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}.icpac-msg{max-width:85%;padding:10px 14px;border-radius:12px;word-wrap:break-word}.icpac-msg.bot{background:#f1f3f4;color:#1f2937;align-self:flex-start;border-bottom-left-radius:4px}.icpac-msg.user{background:#1a56db;color:#fff;align-self:flex-end;border-bottom-right-radius:4px}.icpac-msg.typing{display:flex;gap:4px;padding:14px 18px}.icpac-msg.typing span{width:8px;height:8px;background:#90949c;border-radius:50%;animation:icpac-dot 1.4s infinite}.icpac-msg.typing span:nth-child(2){animation-delay:.2s}.icpac-msg.typing span:nth-child(3){animation-delay:.4s}@keyframes icpac-dot{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-4px)}}#icpac-input-wrap{padding:12px 16px;border-top:1px solid #e5e7eb;display:flex;gap:8px}#icpac-input{flex:1;padding:10px 14px;border:1px solid #e5e7eb;border-radius:8px;outline:none;font-size:14px}#icpac-input:focus{border-color:#1a56db}#icpac-send{background:#1a56db;color:#fff;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;font-weight:500}#icpac-send:disabled{background:#9ca3af;cursor:not-allowed}@media(max-width:480px){#icpac-window{width:calc(100vw - 20px);height:calc(100vh - 100px);bottom:80px;right:10px}}';
+  var css = '#icpac-widget{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;font-size:14px}#icpac-bubble{position:fixed;bottom:20px;right:20px;width:60px;height:60px;border-radius:50%;background:#1a56db;color:#fff;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:999999;display:flex;align-items:center;justify-content:center}#icpac-bubble:hover{transform:scale(1.05)}#icpac-bubble svg{width:28px;height:28px}#icpac-window{position:fixed;bottom:90px;right:20px;width:380px;height:520px;max-height:calc(100vh - 120px);background:#fff;border-radius:12px;box-shadow:0 5px 40px rgba(0,0,0,.16);z-index:999998;display:none;flex-direction:column;overflow:hidden}#icpac-window.open{display:flex}#icpac-header{background:#1a56db;color:#fff;padding:16px 20px;display:flex;align-items:center;justify-content:space-between}#icpac-header h3{margin:0;font-size:16px;font-weight:600}#icpac-close{background:none;border:none;color:#fff;cursor:pointer;padding:4px}#icpac-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}.icpac-msg{max-width:85%;padding:10px 14px;border-radius:12px;word-wrap:break-word}.icpac-msg.bot{background:#f1f3f4;color:#1f2937;align-self:flex-start;border-bottom-left-radius:4px}.icpac-msg.bot ul{margin:4px 0;padding-left:20px}.icpac-msg.bot li{margin:2px 0}.icpac-msg.bot strong{font-weight:600}.icpac-msg.user{background:#1a56db;color:#fff;align-self:flex-end;border-bottom-right-radius:4px}.icpac-msg.typing{display:flex;gap:4px;padding:14px 18px}.icpac-msg.typing span{width:8px;height:8px;background:#90949c;border-radius:50%;animation:icpac-dot 1.4s infinite}.icpac-msg.typing span:nth-child(2){animation-delay:.2s}.icpac-msg.typing span:nth-child(3){animation-delay:.4s}@keyframes icpac-dot{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-4px)}}#icpac-input-wrap{padding:12px 16px;border-top:1px solid #e5e7eb;display:flex;gap:8px}#icpac-input{flex:1;padding:10px 14px;border:1px solid #e5e7eb;border-radius:8px;outline:none;font-size:14px}#icpac-input:focus{border-color:#1a56db}#icpac-send{background:#1a56db;color:#fff;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;font-weight:500}#icpac-send:disabled{background:#9ca3af;cursor:not-allowed}@media(max-width:480px){#icpac-window{width:calc(100vw - 20px);height:calc(100vh - 100px);bottom:80px;right:10px}}';
 
   var container = document.createElement('div');
   container.id = 'icpac-widget';
@@ -28,10 +28,27 @@
     sendBtn.onclick = send;
     input.onkeypress = function(e) { if(e.key === 'Enter') send(); };
 
+    function escapeHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function formatMarkdown(text) {
+      var s = escapeHtml(text);
+      s = s.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+      s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      s = s.replace(/^[\t ]*[-•]\s+(.+)/gm, '<li>$1</li>');
+      s = s.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+      s = s.replace(/<\/ul>\s*<ul>/g, '');
+      s = s.replace(/\n/g, '<br>');
+      return s;
+    }
+
     function addMsg(text, type) {
       var div = document.createElement('div');
       div.className = 'icpac-msg ' + type;
-      div.textContent = text;
+      if (type === 'bot') { div.innerHTML = formatMarkdown(text); }
+      else { div.textContent = text; }
       messages.appendChild(div);
       messages.scrollTop = messages.scrollHeight;
     }
