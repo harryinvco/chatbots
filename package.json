@@ -1,0 +1,23 @@
+{
+  "name": "icpac-assistant",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ICPAC digital assistant — RAG chatbot grounded in icpac.org.cy, served on Vercel.",
+  "scripts": {
+    "crawl": "xvfb-run -a node scripts/crawl.mjs",
+    "crawl:headful": "node scripts/crawl.mjs",
+    "build:kb": "node scripts/build-kb.mjs",
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "openai": "^4.77.0"
+  },
+  "devDependencies": {
+    "pdf-parse": "^1.1.1",
+    "playwright": "^1.49.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
