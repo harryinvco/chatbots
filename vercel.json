@@ -1,5 +1,14 @@
 {
+  "functions": {
+    "api/chat.js": { "maxDuration": 60 },
+    "api/refresh.js": { "maxDuration": 60 },
+    "api/admin.js": { "maxDuration": 30 }
+  },
+  "crons": [
+    { "path": "/api/refresh", "schedule": "0 6 * * *" }
+  ],
   "rewrites": [
+    { "source": "/admin", "destination": "/admin.html" },
     { "source": "/(.*)", "destination": "/" }
   ],
   "headers": [

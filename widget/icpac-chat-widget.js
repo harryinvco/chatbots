@@ -21,7 +21,7 @@
     var sendBtn = document.getElementById('icpac-send');
     var win = document.getElementById('icpac-window');
 
-    addMsg('Hello! How can I help you today?', 'bot');
+    addMsg('Hello! Ask me about ICPAC (ΣΕΛΚ) — latest news, announcements and services. English or Greek.', 'bot');
 
     document.getElementById('icpac-bubble').onclick = function() { win.classList.toggle('open'); if(win.classList.contains('open')) input.focus(); };
     document.getElementById('icpac-close').onclick = function() { win.classList.remove('open'); };

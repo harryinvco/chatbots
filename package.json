@@ -1,0 +1,14 @@
+{
+  "name": "icpac-ai-assistant",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ICPAC (ΣΕΛΚ) AI assistant — scrapes the official website with ScraperAPI and answers with the Anthropic API.",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.105.0",
+    "cheerio": "^1.2.0"
+  }
+}

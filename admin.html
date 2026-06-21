@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>ICPAC Assistant — Chat History (Admin)</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; background: #f3f4f6; color: #111827; height: 100vh; display: flex; flex-direction: column; }
+    header { background: #1a56db; color: #fff; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 16px; font-weight: 600; }
+    header .meta { font-size: 12px; opacity: .85; }
+    header button { background: rgba(255,255,255,.15); color: #fff; border: none; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+    .login { margin: auto; background: #fff; padding: 32px; border-radius: 12px; box-shadow: 0 6px 30px rgba(0,0,0,.08); width: 320px; text-align: center; }
+    .login h2 { font-size: 18px; margin-bottom: 16px; }
+    .login input { width: 100%; padding: 11px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; margin-bottom: 12px; outline: none; }
+    .login input:focus { border-color: #1a56db; }
+    .login button { width: 100%; background: #1a56db; color: #fff; border: none; border-radius: 8px; padding: 11px; font-size: 15px; font-weight: 500; cursor: pointer; }
+    .login .err { color: #dc2626; font-size: 13px; margin-bottom: 10px; min-height: 16px; }
+    .layout { flex: 1; display: flex; overflow: hidden; }
+    .list { width: 320px; border-right: 1px solid #e5e7eb; background: #fff; overflow-y: auto; }
+    .list .item { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; cursor: pointer; }
+    .list .item:hover { background: #f9fafb; }
+    .list .item.active { background: #eff6ff; border-left: 3px solid #1a56db; }
+    .list .item .top { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+    .list .item .preview { font-size: 14px; color: #1f2937; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .detail { flex: 1; overflow-y: auto; padding: 24px; }
+    .detail .empty { color: #9ca3af; text-align: center; margin-top: 80px; }
+    .detail h3 { font-size: 15px; margin-bottom: 4px; }
+    .detail .sub { font-size: 12px; color: #6b7280; margin-bottom: 20px; }
+    .bubble { max-width: 80%; padding: 10px 14px; border-radius: 12px; margin-bottom: 12px; line-height: 1.5; font-size: 14px; white-space: pre-wrap; word-wrap: break-word; }
+    .bubble.user { background: #1a56db; color: #fff; margin-left: auto; border-bottom-right-radius: 4px; }
+    .bubble.assistant { background: #f1f3f4; color: #1f2937; border-bottom-left-radius: 4px; }
+    .bubble .ts { display: block; font-size: 10px; opacity: .6; margin-top: 6px; }
+    .banner { background: #fef3c7; color: #92400e; font-size: 12px; padding: 6px 16px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div id="login" class="login">
+    <h2>Chat History</h2>
+    <div class="err" id="err"></div>
+    <input type="password" id="pw" placeholder="Admin password" autofocus>
+    <button id="loginBtn">View history</button>
+  </div>
+
+  <div id="app" style="display:none; flex-direction:column; height:100%;">
+    <header>
+      <h1>ICPAC Assistant — Chat History</h1>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="meta" id="meta"></span>
+        <button id="refreshBtn">Reload</button>
+        <button id="logoutBtn">Log out</button>
+      </div>
+    </header>
+    <div id="storageBanner" class="banner" style="display:none;"></div>
+    <div class="layout">
+      <div class="list" id="list"></div>
+      <div class="detail" id="detail"><div class="empty">Select a conversation on the left.</div></div>
+    </div>
+  </div>
+
+  <script>
+    var KEY = sessionStorage.getItem('icpac_admin_key') || '';
+    var conversations = [];
+    var activeId = null;
+
+    var loginEl = document.getElementById('login');
+    var appEl = document.getElementById('app');
+    var errEl = document.getElementById('err');
+
+    document.getElementById('loginBtn').onclick = doLogin;
+    document.getElementById('pw').onkeypress = function (e) { if (e.key === 'Enter') doLogin(); };
+    document.getElementById('logoutBtn').onclick = function () {
+      sessionStorage.removeItem('icpac_admin_key'); KEY = ''; show(false);
+    };
+    document.getElementById('refreshBtn').onclick = loadList;
+
+    function show(loggedIn) {
+      loginEl.style.display = loggedIn ? 'none' : 'block';
+      appEl.style.display = loggedIn ? 'flex' : 'none';
+    }
+
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    function fmt(ts) { try { return new Date(ts).toLocaleString(); } catch (e) { return ''; } }
+
+    function doLogin() {
+      var pw = document.getElementById('pw').value.trim();
+      if (!pw) return;
+      KEY = pw;
+      errEl.textContent = '';
+      loadList(true);
+    }
+
+    function api(qs) {
+      return fetch('/api/admin' + qs, { headers: { 'x-admin-key': KEY } })
+        .then(function (r) {
+          if (r.status === 401) throw new Error('Wrong password');
+          if (!r.ok) throw new Error('Request failed (' + r.status + ')');
+          return r.json();
+        });
+    }
+
+    function loadList(fromLogin) {
+      api('?limit=200').then(function (data) {
+        sessionStorage.setItem('icpac_admin_key', KEY);
+        show(true);
+        conversations = data.conversations || [];
+        document.getElementById('meta').textContent = data.count + ' conversation(s)';
+        var banner = document.getElementById('storageBanner');
+        if (data.storage && data.storage.indexOf('memory') === 0) {
+          banner.style.display = 'block';
+          banner.textContent = 'Storage is in-memory and not persisted. Configure KV (KV_REST_API_URL / KV_REST_API_TOKEN) to keep history.';
+        } else { banner.style.display = 'none'; }
+        renderList();
+      }).catch(function (e) {
+        if (fromLogin) { errEl.textContent = e.message; }
+        else { alert(e.message); }
+      });
+    }
+
+    function renderList() {
+      var list = document.getElementById('list');
+      if (!conversations.length) { list.innerHTML = '<div class="item">No conversations yet.</div>'; return; }
+      list.innerHTML = conversations.map(function (c) {
+        var first = (c.messages && c.messages.find(function (m) { return m.role === 'user'; })) || {};
+        return '<div class="item' + (c.id === activeId ? ' active' : '') + '" data-id="' + esc(c.id) + '">' +
+          '<div class="top"><span>' + esc(c.user || 'anonymous') + '</span><span>' + fmt(c.updatedAt) + '</span></div>' +
+          '<div class="preview">' + esc(first.content || '(empty)') + '</div></div>';
+      }).join('');
+      Array.prototype.forEach.call(list.querySelectorAll('.item'), function (el) {
+        el.onclick = function () { openConv(el.getAttribute('data-id')); };
+      });
+    }
+
+    function openConv(id) {
+      activeId = id;
+      renderList();
+      var c = conversations.find(function (x) { return x.id === id; });
+      var detail = document.getElementById('detail');
+      if (!c) { detail.innerHTML = '<div class="empty">Not found.</div>'; return; }
+      var msgs = (c.messages || []).map(function (m) {
+        return '<div class="bubble ' + (m.role === 'user' ? 'user' : 'assistant') + '">' +
+          esc(m.content) + '<span class="ts">' + fmt(m.ts) + '</span></div>';
+      }).join('');
+      detail.innerHTML =
+        '<h3>' + esc(c.user || 'anonymous') + '</h3>' +
+        '<div class="sub">ID: ' + esc(c.id) + ' · started ' + fmt(c.createdAt) + ' · ' +
+        ((c.messages || []).length) + ' messages</div>' + msgs;
+    }
+
+    if (KEY) loadList(); else show(false);
+  </script>
+</body>
+</html>
