@@ -34,6 +34,10 @@
     .bubble.assistant { background: #f1f3f4; color: #1f2937; border-bottom-left-radius: 4px; }
     .bubble .ts { display: block; font-size: 10px; opacity: .6; margin-top: 6px; }
     .banner { background: #fef3c7; color: #92400e; font-size: 12px; padding: 6px 16px; text-align: center; }
+    .contentbar { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; font-size: 13px; color: #374151; }
+    .contentbar button { background: #059669; color: #fff; border: none; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+    .contentbar button:disabled { background: #9ca3af; cursor: not-allowed; }
+    .contentbar .progress { color: #059669; font-weight: 500; }
   </style>
 </head>
 <body>
@@ -54,6 +58,12 @@
       </div>
     </header>
     <div id="storageBanner" class="banner" style="display:none;"></div>
+    <div class="contentbar">
+      <span id="kbStatus">Knowledge base: …</span>
+      <span style="flex:1;"></span>
+      <span id="crawlProgress" class="progress" style="display:none;"></span>
+      <button id="crawlBtn">Refresh content now</button>
+    </div>
     <div class="layout">
       <div class="list" id="list"></div>
       <div class="detail" id="detail"><div class="empty">Select a conversation on the left.</div></div>
@@ -75,6 +85,57 @@
       sessionStorage.removeItem('icpac_admin_key'); KEY = ''; show(false);
     };
     document.getElementById('refreshBtn').onclick = loadList;
+    document.getElementById('crawlBtn').onclick = doCrawl;
+
+    function refresh(action) {
+      return fetch('/api/refresh?action=' + action, { headers: { 'x-admin-key': KEY } })
+        .then(function (r) {
+          if (r.status === 401) throw new Error('Unauthorized');
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        });
+    }
+
+    function loadStatus() {
+      return refresh('status').then(function (s) {
+        var when = s.lastCrawl ? new Date(s.lastCrawl).toLocaleString() : 'never';
+        document.getElementById('kbStatus').textContent =
+          'Knowledge base: ' + (s.pageCount || 0) + ' pages · last updated ' + when +
+          (s.running ? ' · crawl in progress' : '');
+      }).catch(function () {
+        document.getElementById('kbStatus').textContent = 'Knowledge base: unavailable';
+      });
+    }
+
+    function doCrawl() {
+      var btn = document.getElementById('crawlBtn');
+      var prog = document.getElementById('crawlProgress');
+      btn.disabled = true;
+      prog.style.display = 'inline';
+      prog.textContent = 'Starting…';
+
+      var guard = 0;
+      function step(action) {
+        return refresh(action).then(function (r) {
+          prog.textContent = 'Crawling… ' + (r.processed || 0) + '/' + (r.total || 0);
+          if (!r.finished && ++guard < 1000) {
+            return step('continue');
+          }
+          return r;
+        });
+      }
+
+      step('start').then(function (r) {
+        return loadStatus().then(function () {
+          alert('Content updated: ' + (r.total || 0) + ' pages crawled.');
+        });
+      }).catch(function (e) {
+        alert('Refresh failed: ' + e.message);
+      }).finally(function () {
+        btn.disabled = false;
+        prog.style.display = 'none';
+      });
+    }
 
     function show(loggedIn) {
       loginEl.style.display = loggedIn ? 'none' : 'block';
@@ -108,6 +169,7 @@
       api('?limit=200').then(function (data) {
         sessionStorage.setItem('icpac_admin_key', KEY);
         show(true);
+        loadStatus();
         conversations = data.conversations || [];
         document.getElementById('meta').textContent = data.count + ' conversation(s)';
         var banner = document.getElementById('storageBanner');

@@ -2,11 +2,12 @@
 // use ({ query, conversation_id, user } -> { answer, conversation_id }) so the
 // widget and full-page UI need no changes.
 //
-// Pipeline: load scraped knowledge base (cached) -> load conversation history ->
-// ask Claude (grounded on the scraped content) -> persist the turn.
+// Pipeline: retrieve the most relevant scraped pages for the question (from the
+// ~200-page knowledge base) -> load conversation history -> ask Claude, grounded
+// on the retrieved pages -> persist the turn.
 
 import Anthropic from '@anthropic-ai/sdk';
-import { getKnowledgeBase } from '../lib/scraper.js';
+import { retrieveContext } from '../lib/kb.js';
 import { getConversation, saveTurn } from '../lib/store.js';
 
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-4-8';
@@ -20,30 +21,39 @@ const PERSONA = `You are the ICPAC AI Assistant for the Institute of Certified P
 You help visitors with questions about ICPAC / ΣΕΛΚ: its latest news, announcements, articles, events, services, membership, professional development, and leadership.
 
 How to answer:
-- Ground every factual claim about ICPAC in the SOURCE CONTENT below, which was scraped from the official website (latest news, articles and main topics).
+- Ground every factual claim about ICPAC in the SOURCE CONTENT below. It contains the pages from the official website most relevant to the question (and the most recent news), selected from a larger crawl of the site.
 - Many answers are not stated in a single place. When needed, SYNTHESISE across several news items, announcements and articles to build the answer — for example, tracing who has held a role over time by combining an appointment announcement with a later departure announcement. Reason carefully across all the sources before answering.
 - When you synthesise, briefly note which announcements/articles the facts came from.
 - If the SOURCE CONTENT does not contain the answer, say so honestly, point the user to the relevant part of the website, and suggest contacting ICPAC directly. Never invent names, dates, figures, or announcements.
 - Reply in the SAME language as the user's question. Greek question → Greek answer; English question → English answer.
 - Be concise, accurate and professional. Use short paragraphs or bullet points.`;
 
-function buildSystem(kb) {
+function fmtDate(ms) {
+  if (!ms) return '';
+  try {
+    return ` (dated ${new Date(ms).toISOString().slice(0, 10)})`;
+  } catch {
+    return '';
+  }
+}
+
+function buildSystem(ctx) {
   const blocks = [{ type: 'text', text: PERSONA }];
-  if (kb && kb.pages?.length) {
-    const parts = kb.pages.map(
-      (p, i) => `### Source ${i + 1}: ${p.title || '(untitled)'}\nURL: ${p.url}\n${p.text}`
+  if (ctx && ctx.pages && ctx.pages.length) {
+    const parts = ctx.pages.map(
+      (p, i) =>
+        `### Source ${i + 1}: ${p.title || '(untitled)'}${fmtDate(p.date)}\nURL: ${p.url}\n${p.text}`
     );
-    const when = new Date(kb.scrapedAt).toISOString();
+    const when = ctx.lastCrawl ? new Date(ctx.lastCrawl).toISOString() : 'unknown';
     blocks.push({
       type: 'text',
-      text: `SOURCE CONTENT — scraped from the official ICPAC / ΣΕΛΚ website on ${when} (${kb.pages.length} pages):\n\n${parts.join('\n\n---\n\n')}`,
-      // Cache the large, slowly-changing source block to cut cost/latency.
+      text: `SOURCE CONTENT — ${ctx.pages.length} most relevant pages from the official ICPAC / ΣΕΛΚ website (knowledge base of ${ctx.pageCount} pages, last updated ${when}):\n\n${parts.join('\n\n---\n\n')}`,
       cache_control: { type: 'ephemeral' },
     });
   } else {
     blocks.push({
       type: 'text',
-      text: 'SOURCE CONTENT: unavailable right now — the live website could not be reached. Tell the user the latest details are temporarily unavailable and that they can try again shortly or visit https://www.icpac.org.cy/selk/ directly. Do not fabricate ICPAC specifics.',
+      text: 'SOURCE CONTENT: none available yet — the website content has not been scraped (or could not be reached). Tell the user the latest details are temporarily unavailable and to try again shortly or visit https://www.icpac.org.cy/selk/ directly. Do not fabricate ICPAC specifics.',
     });
   }
   return blocks;
@@ -87,12 +97,12 @@ export default async function handler(req, res) {
     }
     if (!conversationId) conversationId = newConversationId();
 
-    // 1. Knowledge base (cached; scrapes only on a cold cache).
-    let kb = null;
+    // 1. Retrieve the most relevant pages for this question.
+    let ctx = null;
     try {
-      kb = await getKnowledgeBase();
+      ctx = await retrieveContext(query);
     } catch (err) {
-      console.error('knowledge base unavailable:', err.message);
+      console.error('retrieval failed:', err.message);
     }
 
     // 2. Prior conversation history (bounded).
@@ -108,7 +118,7 @@ export default async function handler(req, res) {
       model: MODEL,
       max_tokens: MAX_TOKENS,
       output_config: { effort: EFFORT },
-      system: buildSystem(kb),
+      system: buildSystem(ctx),
       messages: [...history, { role: 'user', content: query }],
     };
     if (THINKING !== 'off') params.thinking = { type: 'adaptive' };
@@ -125,7 +135,11 @@ export default async function handler(req, res) {
     // 4. Persist the turn for the admin history view (best effort).
     try {
       await saveTurn(conversationId, user, query, answer, {
-        assistant: { model: final.model, usage: final.usage },
+        assistant: {
+          model: final.model,
+          usage: final.usage,
+          sources: ctx ? ctx.pages.map((p) => p.url) : [],
+        },
       });
     } catch (err) {
       console.error('failed to persist conversation:', err.message);
