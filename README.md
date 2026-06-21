@@ -21,9 +21,14 @@ Refresh (on-demand)                        Chat
 ```
 
 - **Crawl (on-demand)** — the site is behind Cloudflare, so [ScraperAPI](https://www.scraperapi.com/)
-  fetches it. The crawler discovers the **latest** URLs (via the sitemap's
-  `lastmod` dates, plus the homepage/news links) and scrapes them in small
-  batches into KV. It runs only when you trigger it (no schedule).
+  fetches it. The crawler harvests article links from the news/events listing
+  pages (and their year filters), ranks them by article **id** (higher = newer),
+  adds the static info pages from the sitemap, skips junk (login/error pages),
+  and scrapes the result in small batches into KV. It runs only when you trigger
+  it (no schedule).
+  > The site's `sitemap.xml` is stale (every `lastmod` is 2018 and it omits
+  > recent articles), so it is used only for the static info pages — recency
+  > comes from the article id, not the sitemap.
 - **Retrieval** — 200 pages is far too much to send to the model per question, so
   each question retrieves only the **~15 most relevant pages** (keyword + recency)
   plus the **newest few** (so "latest news" always works), and sends just those
@@ -102,10 +107,11 @@ shows how many pages are in the knowledge base and when it was last refreshed.
   /api/refresh?action=continue&key=YOUR_ADMIN_PASSWORD   (repeat until finished)
   /api/refresh?action=status&key=YOUR_ADMIN_PASSWORD
   ```
-- **Coverage of "latest":** the crawler relies on the site's `sitemap.xml`
-  (`lastmod`) for recency. If the site has no usable sitemap, set
-  `SCRAPE_NEWS_URLS` to the news/announcement listing page(s) — including
-  pagination like `?page=2`, `?page=3` — so the latest articles are discovered.
+- **Coverage of "latest":** recency comes from the article **id** harvested from
+  the news/events listing pages (`SCRAPE_NEWS_URLS`, default = `news.aspx?catid=1001`
+  + the two `events.aspx` categories) and their `year=` filters. To pull in more
+  history, raise `SCRAPE_MAX_LISTING_PAGES`, or add more listing URLs (e.g. the
+  English `/selk/en/...` listings) to `SCRAPE_NEWS_URLS`.
 - **Scale/cost knobs:** `SCRAPE_MAX_PAGES` (default 200), `SCRAPE_BATCH`,
   `SCRAPE_CONCURRENCY`, `RETRIEVE_LIMIT`, `SEND_CHAR_CAP` — see `.env.example`.
 
