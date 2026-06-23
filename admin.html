@@ -129,7 +129,19 @@
 
       step('start').then(function (r) {
         return loadStatus().then(function () {
-          alert('Content updated: ' + (r.total || 0) + ' pages crawled.');
+          var msg;
+          if ((r.stored || 0) > 0) {
+            msg = 'Content updated: ' + r.stored + ' pages stored.';
+          } else {
+            msg = 'Crawl finished but stored 0 pages.\n\n' +
+              'Processed: ' + (r.processed || 0) +
+              ' · blocked/empty: ' + (r.blocked || 0) +
+              ' · errors: ' + (r.errors || 0) + '\n' +
+              (r.lastError ? ('Last error: ' + r.lastError + '\n\n') : '\n') +
+              'Likely cause: ScraperAPI key invalid or out of credits. ' +
+              'Your previous content was kept.';
+          }
+          alert(msg);
         });
       }).catch(function (e) {
         alert('Refresh failed: ' + e.message);
