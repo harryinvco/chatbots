@@ -117,8 +117,10 @@
       var guard = 0;
       function step(action) {
         return refresh(action).then(function (r) {
-          prog.textContent = 'Crawling… ' + (r.processed || 0) + '/' + (r.total || 0);
-          if (!r.finished && ++guard < 1000) {
+          prog.textContent = r.phase === 'expand'
+            ? 'Discovering pages… (' + (r.expandLeft || 0) + ' listings left)'
+            : 'Crawling… ' + (r.processed || 0) + '/' + (r.total || 0);
+          if (!r.finished && ++guard < 2000) {
             return step('continue');
           }
           return r;

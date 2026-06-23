@@ -107,11 +107,13 @@ shows how many pages are in the knowledge base and when it was last refreshed.
   /api/refresh?action=continue&key=YOUR_ADMIN_PASSWORD   (repeat until finished)
   /api/refresh?action=status&key=YOUR_ADMIN_PASSWORD
   ```
-- **Coverage of "latest":** recency comes from the article **id** harvested from
-  the news/events listing pages (`SCRAPE_NEWS_URLS`, default = `news.aspx?catid=1001`
-  + the two `events.aspx` categories) and their `year=` filters. To pull in more
-  history, raise `SCRAPE_MAX_LISTING_PAGES`, or add more listing URLs (e.g. the
-  English `/selk/en/...` listings) to `SCRAPE_NEWS_URLS`.
+- **Coverage of "latest":** the site pages its archive with JS post-backs that a
+  link crawler can't follow, so the crawler **generates** the year-filtered
+  listing URLs (`news.aspx?...&year=YYYY`, which work as plain GETs) and harvests
+  the article links from each. To pull in more history, raise `SCRAPE_YEARS_BACK`
+  (default 12) or `SCRAPE_MAX_PAGES`; to cover more sections, add listing URLs
+  (e.g. the English `/selk/en/...` listings, magazine, media coverage) to
+  `SCRAPE_NEWS_URLS`.
 - **Scale/cost knobs:** `SCRAPE_MAX_PAGES` (default 200), `SCRAPE_BATCH`,
   `SCRAPE_CONCURRENCY`, `RETRIEVE_LIMIT`, `SEND_CHAR_CAP` — see `.env.example`.
 
