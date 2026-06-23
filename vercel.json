@@ -4,10 +4,7 @@
     "api/refresh.js": { "maxDuration": 60 },
     "api/admin.js": { "maxDuration": 30 }
   },
-  "rewrites": [
-    { "source": "/admin", "destination": "/admin.html" },
-    { "source": "/(.*)", "destination": "/" }
-  ],
+  "cleanUrls": true,
   "headers": [
     {
       "source": "/widget/(.*)",
