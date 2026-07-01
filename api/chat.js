@@ -3,7 +3,7 @@
 // widget and full-page UI need no changes.
 //
 // Pipeline: retrieve the most relevant scraped pages for the question (from the
-// ~200-page knowledge base) -> load conversation history -> ask Claude, grounded
+// knowledge base) -> load conversation history -> ask Claude, grounded
 // on the retrieved pages -> persist the turn.
 
 import Anthropic from '@anthropic-ai/sdk';

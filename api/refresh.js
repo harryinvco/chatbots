@@ -1,4 +1,4 @@
-// Drives the on-demand, batched re-crawl of the website.
+// Drives the on-demand Firecrawl re-crawl of the website.
 //
 //   GET /api/refresh?action=start     -> discover latest URLs + scrape first batch
 //   GET /api/refresh?action=continue  -> scrape the next batch
