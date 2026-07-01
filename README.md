@@ -35,6 +35,9 @@ Refresh (on-demand)                        Chat
 - **Answers** — Claude (`claude-opus-4-8`) is prompted to **synthesise across
   multiple announcements/articles** — e.g. tracing who held a role over time by
   combining an appointment notice with a later departure notice.
+- **Web-search fallback** — when the knowledge base can't answer, Claude uses its
+  built-in **web search** to fill the gap (prefers official/reputable sources and
+  cites them). Toggle with `WEB_SEARCH`.
 - **Chat history** — every conversation is stored in KV and viewable on a
   password-protected admin page.
 

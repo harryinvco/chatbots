@@ -16,15 +16,23 @@ const EFFORT = process.env.ANTHROPIC_EFFORT || 'medium'; // low | medium | high 
 const THINKING = (process.env.ANTHROPIC_THINKING || 'adaptive').toLowerCase(); // adaptive | off
 const HISTORY_LIMIT = Number(process.env.HISTORY_LIMIT || 20); // messages of context
 
-const PERSONA = `You are the ICPAC AI Assistant for the Institute of Certified Public Accountants of Cyprus — in Greek, ΣΕΛΚ (Σύνδεσμος Εγκεκριμένων Λογιστών Κύπρου). The official website is https://www.icpac.org.cy/selk/ .
+// Web-search fallback: let Claude look things up when the knowledge base is thin.
+const WEB_SEARCH = !/^(0|false|off|no)$/i.test(String(process.env.WEB_SEARCH || 'on'));
+const WEB_SEARCH_MAX_USES = Number(process.env.WEB_SEARCH_MAX_USES || 4);
+const WEB_SEARCH_DOMAINS = String(process.env.WEB_SEARCH_ALLOWED_DOMAINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+const PERSONA = `You are the ICPAC AI Assistant for the Institute of Certified Public Accountants of Cyprus — in Greek, ΣΕΛΚ (Σύνδεσμος Εγκεκριμένων Λογιστών Κύπρου). The official website is https://www.icpac.org.cy/selk/en/ .
 
 You help visitors with questions about ICPAC / ΣΕΛΚ: its latest news, announcements, articles, events, services, membership, professional development, and leadership.
 
 How to answer:
-- Ground every factual claim about ICPAC in the SOURCE CONTENT below. It contains the pages from the official website most relevant to the question (and the most recent news), selected from a larger crawl of the site.
-- Many answers are not stated in a single place. When needed, SYNTHESISE across several news items, announcements and articles to build the answer — for example, tracing who has held a role over time by combining an appointment announcement with a later departure announcement. Reason carefully across all the sources before answering.
-- When you synthesise, briefly note which announcements/articles the facts came from.
-- If the SOURCE CONTENT does not contain the answer, say so honestly, point the user to the relevant part of the website, and suggest contacting ICPAC directly. Never invent names, dates, figures, or announcements.
+- Prefer the SOURCE CONTENT below. It contains the pages from the official website most relevant to the question (and the most recent news), selected from a larger crawl of the site.
+- Many answers are not stated in a single place. When needed, SYNTHESISE across several news items, announcements and articles — for example, tracing who has held a role over time by combining an appointment announcement with a later departure announcement. Reason carefully across all the sources.
+- If the SOURCE CONTENT does not contain the answer (or a source looks blocked/empty), USE THE web_search TOOL to find it. Prefer the official site (icpac.org.cy) and other reputable sources (Cyprus government, established news/press). Then answer, and make clear which facts came from a web search, citing the source.
+- Never invent names, dates, figures, or announcements. If neither the sources nor a web search can answer, say so honestly and suggest contacting ICPAC directly.
 - Reply in the SAME language as the user's question. Greek question → Greek answer; English question → English answer.
 - Be concise, accurate and professional. Use short paragraphs or bullet points.`;
 
@@ -112,7 +120,7 @@ export default async function handler(req, res) {
       .map((m) => ({ role: m.role, content: m.content }));
 
     // 3. Ask Claude. Stream internally and collect the final message so long
-    //    answers / thinking never trip the HTTP timeout.
+    //    answers / thinking / web searches never trip the HTTP timeout.
     const client = new Anthropic();
     const params = {
       model: MODEL,
@@ -123,8 +131,34 @@ export default async function handler(req, res) {
     };
     if (THINKING !== 'off') params.thinking = { type: 'adaptive' };
 
-    const stream = client.messages.stream(params);
-    const final = await stream.finalMessage();
+    const tools = [];
+    if (WEB_SEARCH) {
+      const tool = { type: 'web_search_20250305', name: 'web_search', max_uses: WEB_SEARCH_MAX_USES };
+      if (WEB_SEARCH_DOMAINS.length) tool.allowed_domains = WEB_SEARCH_DOMAINS;
+      tools.push(tool);
+    }
+
+    async function generate(useTools) {
+      const p = useTools.length ? { ...params, tools: useTools } : params;
+      return client.messages.stream(p).finalMessage();
+    }
+
+    let final;
+    try {
+      final = await generate(tools);
+    } catch (err) {
+      // If the web-search tool isn't available for this account/model, still answer.
+      if (tools.length) {
+        console.error('web_search attempt failed, retrying without it:', err.message);
+        final = await generate([]);
+      } else {
+        throw err;
+      }
+    }
+
+    const usedWebSearch = final.content.some(
+      (b) => b.type === 'server_tool_use' || b.type === 'web_search_tool_result'
+    );
     const answer =
       final.content
         .filter((b) => b.type === 'text')
@@ -138,6 +172,7 @@ export default async function handler(req, res) {
         assistant: {
           model: final.model,
           usage: final.usage,
+          webSearch: usedWebSearch,
           sources: ctx ? ctx.pages.map((p) => p.url) : [],
         },
       });
